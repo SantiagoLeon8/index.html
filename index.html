@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Alfil Dorado en Realidad Aumentada con Campo Vectorial</title>
+    <title>Figura de Volúmenes (Oro) + Campo Vectorial en Realidad Aumentada</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #info {
             position: absolute;
             bottom: 20px;
@@ -56,7 +52,7 @@
 </head>
 <body>
     <div id="info">
-        🧙 ALFIL DORADO PBR | Toca la pantalla para colocarlo | Campo vectorial dinámico
+        🏆 FIGURA DE VOLÚMENES (Cono + Hiperboloide + Paraboloide + Esfera) | Campo vectorial | Toca la pantalla para colocar en RA
     </div>
     <button id="ar-button">🔮 ACTIVAR REALIDAD AUMENTADA</button>
 
@@ -77,9 +73,8 @@
         // --- Configuración inicial de la escena y la cámara ---
         const scene = new THREE.Scene();
         scene.background = null; // Fondo transparente para AR
-        scene.environment = null; // Evitamos contaminar la iluminación AR
+        scene.environment = null;
 
-        // Cámara para la experiencia de RA
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -95,38 +90,32 @@
         controlsPreview.enablePan = true;
 
         // --- Iluminación de Alta Calidad para efecto "Oro" ---
-        // Luz ambiental suave para rellenar sombras
         const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
         scene.add(ambientLight);
         
-        // Luz principal direccional que genera los reflejos metálicos
         const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
         mainLight.position.set(2, 3, 1.5);
         mainLight.castShadow = true;
         scene.add(mainLight);
         
-        // Luz de relleno cálida desde atrás
         const backLight = new THREE.PointLight(0xcc8844, 0.6);
         backLight.position.set(-1, 2, -2);
         scene.add(backLight);
         
-        // Luz fría lateral para dar contraste
         const fillLight = new THREE.PointLight(0x6688aa, 0.5);
         fillLight.position.set(1.5, 1, 1.8);
         scene.add(fillLight);
         
-        // Luz de borde (rim light) para resaltar los bordes dorados
         const rimLight = new THREE.PointLight(0xffaa66, 0.8);
         rimLight.position.set(1, 2.5, -2);
         scene.add(rimLight);
         
-        // Luz desde abajo para simular rebote en superficies
         const bottomLight = new THREE.PointLight(0xaa8866, 0.4);
         bottomLight.position.set(0, -1.5, 0);
         scene.add(bottomLight);
         
-        // --- Creación del Alfil con Material Dorado Fotorrealista (PBR) ---
-        const bishopGroup = new THREE.Group();
+        // --- Creación de la FIGURA COMPUESTA (Cono truncado + Hiperboloide + Paraboloide + Esfera) con material Dorado ---
+        const figureGroup = new THREE.Group();
         
         // Material principal dorado: alto metalness, roughness baja para reflejos intensos
         const goldMaterial = new THREE.MeshStandardMaterial({
@@ -138,14 +127,6 @@
             flatShading: false
         });
         
-        // Material más oscuro para dar contraste en detalles (dorado mate)
-        const darkGoldMaterial = new THREE.MeshStandardMaterial({
-            color: 0xcc8844,
-            metalness: 0.85,
-            roughness: 0.45,
-            emissive: 0x221100
-        });
-        
         // Material para incrustaciones brillantes
         const brightGoldMaterial = new THREE.MeshStandardMaterial({
             color: 0xffcc66,
@@ -155,91 +136,62 @@
             emissiveIntensity: 0.05
         });
         
-        // 1. Base (achatada, ancha)
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.95, 0.28, 48), goldMaterial);
-        base.position.y = 0;
-        base.castShadow = true;
-        bishopGroup.add(base);
+        // 1. Cono truncado (base)
+        const cono = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 2.5, 48), goldMaterial);
+        cono.position.y = -3.0;
+        cono.castShadow = true;
+        figureGroup.add(cono);
         
-        // 2. Cuerpo principal
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.82, 0.92, 48), goldMaterial);
-        body.position.y = 0.28 + 0.46;
-        body.castShadow = true;
-        bishopGroup.add(body);
-        
-        // 3. Anillo decorativo inferior (torus)
-        const ringLower = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.09, 32, 80), brightGoldMaterial);
-        ringLower.position.y = 0.48;
-        ringLower.rotation.x = Math.PI / 2;
-        bishopGroup.add(ringLower);
-        
-        // 4. Anillo principal (dorado brillante)
-        const ringMain = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.1, 32, 80), brightGoldMaterial);
-        ringMain.position.y = 0.85;
-        ringMain.rotation.x = Math.PI / 2;
-        bishopGroup.add(ringMain);
-        
-        // 5. Cuello
-        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.58, 0.38, 48), goldMaterial);
-        neck.position.y = 1.15;
-        neck.castShadow = true;
-        bishopGroup.add(neck);
-        
-        // 6. Cabeza (forma esférica achatada)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.54, 64, 64), goldMaterial);
-        head.position.y = 1.52;
-        head.scale.set(0.92, 0.68, 0.92);
-        head.castShadow = true;
-        bishopGroup.add(head);
-        
-        // 7. Collar superior (torus)
-        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.08, 32, 80), brightGoldMaterial);
-        collar.position.y = 1.38;
-        collar.rotation.x = Math.PI / 2;
-        bishopGroup.add(collar);
-        
-        // 8. Mitra (base del cono)
-        const mitreBase = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.66, 0.48, 48), goldMaterial);
-        mitreBase.position.y = 1.86;
-        bishopGroup.add(mitreBase);
-        
-        // 9. Punta del alfil (cono)
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.78, 48), goldMaterial);
-        spike.position.y = 2.18;
-        spike.castShadow = true;
-        bishopGroup.add(spike);
-        
-        // 10. Bola superior (remate)
-        const finial = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 32), brightGoldMaterial);
-        finial.position.y = 2.58;
-        finial.castShadow = true;
-        bishopGroup.add(finial);
-        
-        // 11. Detalles incrustados (esferas doradas alrededor del cuerpo)
-        for (let i = 0; i < 12; i++) {
-            const angle = (i / 12) * Math.PI * 2;
-            const stud = new THREE.Mesh(new THREE.SphereGeometry(0.085, 24, 24), brightGoldMaterial);
-            stud.position.set(Math.cos(angle) * 0.78, 0.68, Math.sin(angle) * 0.78);
-            stud.castShadow = true;
-            bishopGroup.add(stud);
+        // 2. Hiperboloide (generado por Lathe)
+        const hiperPuntos = [];
+        for (let y = -1.5; y <= 2.5; y += 0.2) {
+            let r = Math.sqrt(1.8 * 1.8 + (y * y) / 6);
+            if (r < 1.6) r = 1.6;
+            if (r > 2.7) r = 2.7;
+            hiperPuntos.push(new THREE.Vector2(r, y));
         }
+        const hiperGeo = new THREE.LatheGeometry(hiperPuntos, 48);
+        const hiperboloide = new THREE.Mesh(hiperGeo, goldMaterial);
+        hiperboloide.position.y = 0.5;
+        hiperboloide.castShadow = true;
+        figureGroup.add(hiperboloide);
         
-        // 12. Pequeñas joyas en la base
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const gem = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), darkGoldMaterial);
-            gem.position.set(Math.cos(angle) * 0.94, 0.12, Math.sin(angle) * 0.94);
-            gem.castShadow = true;
-            bishopGroup.add(gem);
+        // 3. Paraboloide
+        const paraPuntos = [];
+        for (let y = 2.5; y <= 5.5; y += 0.15) {
+            let r = 1.6 * (1 - (y - 2.5) / 3.0);
+            if (r < 0) r = 0;
+            paraPuntos.push(new THREE.Vector2(r, y));
         }
+        const paraGeo = new THREE.LatheGeometry(paraPuntos, 48);
+        const paraboloide = new THREE.Mesh(paraGeo, goldMaterial);
+        paraboloide.position.y = 0.5;
+        paraboloide.castShadow = true;
+        figureGroup.add(paraboloide);
         
-        // Ajustamos la escala para que sea proporcionada en AR (tamaño ~ 20 cm de alto en el mundo real)
-        bishopGroup.scale.set(0.85, 0.85, 0.85);
+        // 4. Esfera en la punta
+        const esfera = new THREE.Mesh(new THREE.SphereGeometry(1.36, 48, 48), brightGoldMaterial);
+        esfera.position.y = 5.7;
+        esfera.castShadow = true;
+        figureGroup.add(esfera);
+        
+        // Anillos decorativos (opcional)
+        const anilloMat = new THREE.MeshStandardMaterial({ color: 0xffaa66, metalness: 0.9 });
+        const anillo1 = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.08, 32, 100), anilloMat);
+        anillo1.position.y = -1.8;
+        anillo1.rotation.x = Math.PI / 2;
+        figureGroup.add(anillo1);
+        
+        const anillo2 = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.08, 32, 100), anilloMat);
+        anillo2.position.y = 0.8;
+        anillo2.rotation.x = Math.PI / 2;
+        figureGroup.add(anillo2);
+        
+        // Ajustamos la escala general de la figura
+        figureGroup.scale.set(0.7, 0.7, 0.7);
         
         // --- Campo Vectorial (Flechas + Partículas Dinámicas) ---
-        // Definimos un campo vectorial con rotación armónica alrededor de Y
         function vectorField(x, y, z) {
-            // Flujo vorticial suave y con variación en Y
             let vx = -z * 0.5;
             let vy = Math.sin(x * 1.2) * Math.cos(z * 1.2) * 0.4;
             let vz = x * 0.5;
@@ -249,26 +201,24 @@
             return new THREE.Vector3(vx / len * scale, vy / len * scale, vz / len * scale);
         }
         
-        // Función para generar radio aproximado del alfil en cada altura (para evitar flechas dentro)
-        function getBishopRadiusAt(y) {
-            // Alturas locales del alfil (escala original 0.85 ya aplicada)
+        // Función para generar radio aproximado de la figura en cada altura (para evitar flechas dentro)
+        function getFigureRadiusAt(y) {
             const absY = Math.abs(y);
-            if (absY < 0.25) return 0.85;
-            if (absY < 0.75) return 0.75;
-            if (absY < 1.15) return 0.68;
-            if (absY < 1.55) return 0.55;
-            if (absY < 1.85) return 0.52;
-            if (absY < 2.15) return 0.45;
-            return 0.32;
+            if (absY < 1.2) return 1.4;
+            if (absY < 2.0) return 1.8;
+            if (absY < 2.8) return 1.6;
+            if (absY < 3.8) return 1.2;
+            if (absY < 4.5) return 0.8;
+            return 0.5;
         }
         
-        // Crear flechas alrededor (grupo separado, se añadirá después al scene)
+        // Crear flechas alrededor
         const arrowGroup = new THREE.Group();
         const step = 0.9;
         for (let x = -2.8; x <= 2.8; x += step) {
             for (let z = -2.8; z <= 2.8; z += step) {
-                for (let y = -1.6; y <= 2.4; y += step) {
-                    const radFig = getBishopRadiusAt(y);
+                for (let y = -2.5; y <= 4.5; y += step) {
+                    const radFig = getFigureRadiusAt(y);
                     const distHor = Math.hypot(x, z);
                     if (distHor > radFig + 0.25 && distHor < 3.2) {
                         const dir = vectorField(x, y, z);
@@ -281,7 +231,7 @@
             }
         }
         
-        // Partículas dinámicas que siguen el campo (flujo alrededor)
+        // Partículas dinámicas que siguen el campo
         const flowCount = 1800;
         const flowGeo = new THREE.BufferGeometry();
         const flowPositions = new Float32Array(flowCount * 3);
@@ -308,9 +258,9 @@
                 px += dir.x * speed;
                 py += dir.y * speed;
                 pz += dir.z * speed;
-                const radFig = getBishopRadiusAt(py);
+                const radFig = getFigureRadiusAt(py);
                 const distHor = Math.hypot(px, pz);
-                if (distHor < radFig + 0.15 || Math.abs(py) > 3.5 || distHor > 3.8) {
+                if (distHor < radFig + 0.15 || Math.abs(py) > 5.0 || distHor > 3.8) {
                     const angle = Math.random() * Math.PI * 2;
                     const radius = 1.8 + Math.random() * 1.6;
                     px = Math.cos(angle) * radius;
@@ -329,8 +279,8 @@
         const internalGeo = new THREE.BufferGeometry();
         const internalPositions = new Float32Array(internalCount * 3);
         for (let i = 0; i < internalCount; i++) {
-            const y = -1.8 + Math.random() * 3.6;
-            const rMax = getBishopRadiusAt(y);
+            const y = -2.5 + Math.random() * 7;
+            const rMax = getFigureRadiusAt(y);
             const r = Math.random() * rMax;
             const angle = Math.random() * Math.PI * 2;
             const x = Math.cos(angle) * r;
@@ -344,32 +294,23 @@
         const internalParticles = new THREE.Points(internalGeo, internalMat);
         
         // --- Lógica de Realidad Aumentada con Hit Test ---
-        let currentModel = null; // Grupo que contendrá alfil + campo vectorial
-        let reticle = null;     // Mira para indicar dónde se va a colocar
+        let currentModel = null;
+        let reticle = null;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
         
-        // Crear el objeto completo que se colocará en AR (alfil + campo)
         function createARObject() {
             const group = new THREE.Group();
-            // Clonamos el alfil (para evitar problemas de referencias)
-            const alfilClone = bishopGroup.clone(true);
-            group.add(alfilClone);
-            // Añadimos flechas y partículas (clonadas también)
+            const figClone = figureGroup.clone(true);
             const arrowsClone = arrowGroup.clone(true);
             const particlesClone = flowParticles.clone(true);
             const internalClone = internalParticles.clone(true);
-            group.add(arrowsClone);
-            group.add(particlesClone);
-            group.add(internalClone);
-            
-            // Ajustar escala y posición local
+            group.add(figClone, arrowsClone, particlesClone, internalClone);
             group.scale.set(0.8, 0.8, 0.8);
-            group.position.y = -0.2; // Ajuste para que la base toque la superficie
+            group.position.y = -0.2;
             return group;
         }
         
-        // Crear la mira (reticle)
         function createReticle() {
             const geometry = new THREE.RingGeometry(0.15, 0.25, 32);
             const material = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
@@ -378,27 +319,21 @@
             return ring;
         }
         
-        // Función para colocar el objeto en el mundo real
         function placeObject(position, normal) {
             if (currentModel) {
                 scene.remove(currentModel);
             }
             currentModel = createARObject();
             currentModel.position.copy(position);
-            // Opcional: Orientar ligeramente según la normal de la superficie (para mesas horizontales)
-            // Por simplicidad, mantenemos la rotación por defecto
             scene.add(currentModel);
         }
         
-        // Configurar la sesión de WebXR con hit-test
         function setupARSession() {
             renderer.xr.addEventListener('sessionstart', () => {
-                // Ocultamos controles de vista previa cuando se entra en AR
                 controlsPreview.enabled = false;
                 const session = renderer.xr.getSession();
                 if (session) {
                     session.addEventListener('select', onSelect);
-                    // Solicitar hit-test source
                     session.requestReferenceSpace('viewer').then((refSpace) => {
                         session.requestHitTestSource({ space: refSpace }).then((source) => {
                             hitTestSource = source;
@@ -408,7 +343,6 @@
             });
             
             renderer.xr.addEventListener('sessionend', () => {
-                // Restauramos controles al salir de AR
                 controlsPreview.enabled = true;
                 if (hitTestSource) {
                     hitTestSource.cancel();
@@ -423,21 +357,17 @@
         
         function onSelect() {
             if (reticle && reticle.visible) {
-                // Colocamos el objeto en la posición actual de la mira
                 placeObject(reticle.position, null);
             }
         }
         
-        // Añadir el botón de AR proporcionado por Three.js
         const arButton = ARButton.createButton(renderer, {
             requiredFeatures: ['hit-test'],
             optionalFeatures: ['dom-overlay'],
             domOverlay: { root: document.body }
         });
         document.body.appendChild(arButton);
-        // Personalizamos el botón por si queremos mantener el nuestro
         document.querySelector('#ar-button').addEventListener('click', () => {
-            // Disparamos el botón nativo de AR
             const nativeBtn = document.querySelector('button[type="button"]');
             if (nativeBtn && nativeBtn.innerText.includes('ACTIVAR')) {
                 nativeBtn.click();
@@ -446,19 +376,16 @@
             }
         });
         
-        // Inicializar la mira (reticle)
         reticle = createReticle();
         reticle.visible = false;
         scene.add(reticle);
         
-        // Bucle de animación que actualiza hit-test y partículas
         let lastTime = performance.now();
         function animate() {
             const now = performance.now();
             let delta = Math.min(0.033, (now - lastTime) / 1000);
             lastTime = now;
             
-            // Si estamos en AR y tenemos hit-test source, actualizamos la mira
             if (hitTestSource && renderer.xr.isPresenting) {
                 const frame = renderer.xr.getFrame();
                 if (frame) {
@@ -466,4 +393,79 @@
                     if (viewerRefSpace) {
                         const hitTestResults = frame.getHitTestResults(hitTestSource);
                         if (hitTestResults.length > 0) {
-                            con
+                            const hit = hitTestResults[0];
+                            const pose = hit.getPose(viewerRefSpace);
+                            if (pose) {
+                                reticle.visible = true;
+                                reticle.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+                                reticle.quaternion.copy(pose.transform.orientation);
+                            }
+                        } else {
+                            reticle.visible = false;
+                        }
+                    }
+                }
+            } else {
+                if (reticle) reticle.visible = false;
+            }
+            
+            if (currentModel) {
+                updateFlow(delta);
+                const internalPart = currentModel.children.find(c => c.isPoints && c.material.color.getHex() === internalMat.color.getHex());
+                if (internalPart) {
+                    internalPart.rotation.y += 0.005;
+                    internalPart.rotation.x += 0.003;
+                }
+                const time = Date.now() * 0.003;
+                rimLight.intensity = 0.8 + Math.sin(time) * 0.2;
+                bottomLight.intensity = 0.4 + Math.cos(time * 1.2) * 0.15;
+            } else {
+                updateFlow(delta);
+                internalParticles.rotation.y += 0.003;
+                internalParticles.rotation.x += 0.002;
+            }
+            
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        
+        setupARSession();
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Vista previa sin AR
+        function addPreviewScene() {
+            const previewGroup = new THREE.Group();
+            const figPrev = figureGroup.clone(true);
+            const arrowsPrev = arrowGroup.clone(true);
+            const particlesPrev = flowParticles.clone(true);
+            const internalPrev = internalParticles.clone(true);
+            previewGroup.add(figPrev, arrowsPrev, particlesPrev, internalPrev);
+            previewGroup.scale.set(0.7, 0.7, 0.7);
+            previewGroup.position.y = -0.2;
+            scene.add(previewGroup);
+            return previewGroup;
+        }
+        
+        let previewModel = addPreviewScene();
+        renderer.xr.addEventListener('sessionstart', () => {
+            if (previewModel) {
+                scene.remove(previewModel);
+                previewModel = null;
+            }
+        });
+        renderer.xr.addEventListener('sessionend', () => {
+            if (!previewModel) {
+                previewModel = addPreviewScene();
+            }
+        });
+        
+        console.log('✅ Figura de volúmenes (oro) con campo vectorial lista para AR.');
+    </script>
+</body>
+    </html>
