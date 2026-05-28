@@ -3,58 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Figura de Volúmenes (Oro) + Campo Vectorial en Realidad Aumentada</title>
+    <title>Figura de Volúmenes en Realidad Aumentada (Dorada)</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
         #info {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background: rgba(0,0,0,0.7);
-            color: #ffddaa;
+            background: rgba(0,0,0,0.6);
+            color: #ffdd99;
             padding: 8px 15px;
             border-radius: 8px;
             font-size: 14px;
-            pointer-events: none;
             z-index: 10;
-            backdrop-filter: blur(5px);
-            font-family: monospace;
+            pointer-events: none;
         }
-        #ar-button {
+        #btn-reubicar {
             position: absolute;
-            bottom: 30px;
-            right: 30px;
+            bottom: 20px;
+            right: 20px;
             background: #ffaa33;
-            color: #2c2c2c;
-            padding: 12px 24px;
+            color: black;
             border: none;
+            padding: 12px 24px;
             border-radius: 30px;
-            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
             z-index: 20;
-            font-family: inherit;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-            transition: transform 0.2s, background 0.2s;
+            font-size: 16px;
         }
-        #ar-button:hover {
-            background: #ffcc55;
-            transform: scale(1.02);
-        }
-        #ar-button:active {
-            transform: scale(0.98);
-        }
-        @media (max-width: 600px) {
-            #info { font-size: 10px; bottom: 10px; left: 10px; }
-            #ar-button { padding: 8px 16px; font-size: 14px; bottom: 20px; right: 20px; }
+        #ar-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            color: lime;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 20;
         }
     </style>
 </head>
 <body>
-    <div id="info">
-        🏆 FIGURA DE VOLÚMENES (Cono + Hiperboloide + Paraboloide + Esfera) | Campo vectorial | Toca la pantalla para colocar en RA
-    </div>
-    <button id="ar-button">🔮 ACTIVAR REALIDAD AUMENTADA</button>
+    <div id="info">✨ FIGURA DORADA (Cono+Hiperboloide+Paraboloide+Esfera) | Toca la pantalla para colocar</div>
+    <button id="btn-reubicar">📍 Volver a colocar</button>
+    <div id="ar-status">🔄 Iniciando...</div>
 
     <script type="importmap">
         {
@@ -67,405 +62,211 @@
 
     <script type="module">
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-        // --- Configuración inicial de la escena y la cámara ---
+        // --- Escena, cámara, renderizador (transparente para AR) ---
         const scene = new THREE.Scene();
-        scene.background = null; // Fondo transparente para AR
-        scene.environment = null;
+        scene.background = null;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.xr.enabled = true; // Habilitamos WebXR para RA
+        renderer.xr.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- Controles Manuales para la Vista Previa (No AR) ---
-        const controlsPreview = new OrbitControls(camera, renderer.domElement);
-        controlsPreview.enableDamping = true;
-        controlsPreview.enableZoom = true;
-        controlsPreview.enablePan = true;
-
-        // --- Iluminación de Alta Calidad para efecto "Oro" ---
-        const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
-        scene.add(ambientLight);
-        
+        // --- Iluminación realista ---
+        const ambient = new THREE.AmbientLight(0x404060, 0.6);
+        scene.add(ambient);
         const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
         mainLight.position.set(2, 3, 1.5);
-        mainLight.castShadow = true;
         scene.add(mainLight);
-        
-        const backLight = new THREE.PointLight(0xcc8844, 0.6);
-        backLight.position.set(-1, 2, -2);
-        scene.add(backLight);
-        
-        const fillLight = new THREE.PointLight(0x6688aa, 0.5);
-        fillLight.position.set(1.5, 1, 1.8);
+        const fillLight = new THREE.PointLight(0xcc8844, 0.5);
+        fillLight.position.set(-1, 2, -2);
         scene.add(fillLight);
-        
-        const rimLight = new THREE.PointLight(0xffaa66, 0.8);
-        rimLight.position.set(1, 2.5, -2);
+        const backLight = new THREE.PointLight(0x6688aa, 0.4);
+        backLight.position.set(1, 1, -3);
+        scene.add(backLight);
+        const rimLight = new THREE.PointLight(0xffaa66, 0.7);
+        rimLight.position.set(1.5, 2, -2);
         scene.add(rimLight);
-        
-        const bottomLight = new THREE.PointLight(0xaa8866, 0.4);
-        bottomLight.position.set(0, -1.5, 0);
-        scene.add(bottomLight);
-        
-        // --- Creación de la FIGURA COMPUESTA (Cono truncado + Hiperboloide + Paraboloide + Esfera) con material Dorado ---
+
+        // --- Construcción de la figura (exactamente la de volúmenes) ---
         const figureGroup = new THREE.Group();
-        
-        // Material principal dorado: alto metalness, roughness baja para reflejos intensos
-        const goldMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffaa33,
-            emissive: 0x442200,
-            emissiveIntensity: 0.12,
-            metalness: 0.98,
-            roughness: 0.28,
-            flatShading: false
-        });
-        
-        // Material para incrustaciones brillantes
-        const brightGoldMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffcc66,
-            metalness: 0.99,
-            roughness: 0.15,
-            emissive: 0x552200,
-            emissiveIntensity: 0.05
-        });
-        
-        // 1. Cono truncado (base)
-        const cono = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 2.5, 48), goldMaterial);
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xffaa33, metalness: 0.95, roughness: 0.25, emissive: 0x442200, emissiveIntensity: 0.1 });
+        const brightGold = new THREE.MeshStandardMaterial({ color: 0xffcc66, metalness: 0.99, roughness: 0.15 });
+
+        // 1. Cono truncado
+        const cono = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.2, 2.5, 48), goldMat);
         cono.position.y = -3.0;
-        cono.castShadow = true;
         figureGroup.add(cono);
-        
-        // 2. Hiperboloide (generado por Lathe)
-        const hiperPuntos = [];
+
+        // 2. Hiperboloide (LatheGeometry)
+        const pointsH = [];
         for (let y = -1.5; y <= 2.5; y += 0.2) {
-            let r = Math.sqrt(1.8 * 1.8 + (y * y) / 6);
-            if (r < 1.6) r = 1.6;
-            if (r > 2.7) r = 2.7;
-            hiperPuntos.push(new THREE.Vector2(r, y));
+            let r = Math.sqrt(1.8*1.8 + y*y/6);
+            r = Math.min(Math.max(r, 1.6), 2.7);
+            pointsH.push(new THREE.Vector2(r, y));
         }
-        const hiperGeo = new THREE.LatheGeometry(hiperPuntos, 48);
-        const hiperboloide = new THREE.Mesh(hiperGeo, goldMaterial);
-        hiperboloide.position.y = 0.5;
-        hiperboloide.castShadow = true;
-        figureGroup.add(hiperboloide);
-        
+        const hiper = new THREE.Mesh(new THREE.LatheGeometry(pointsH, 48), goldMat);
+        hiper.position.y = 0.5;
+        figureGroup.add(hiper);
+
         // 3. Paraboloide
-        const paraPuntos = [];
+        const pointsP = [];
         for (let y = 2.5; y <= 5.5; y += 0.15) {
-            let r = 1.6 * (1 - (y - 2.5) / 3.0);
+            let r = 1.6 * (1 - (y-2.5)/3.0);
             if (r < 0) r = 0;
-            paraPuntos.push(new THREE.Vector2(r, y));
+            pointsP.push(new THREE.Vector2(r, y));
         }
-        const paraGeo = new THREE.LatheGeometry(paraPuntos, 48);
-        const paraboloide = new THREE.Mesh(paraGeo, goldMaterial);
-        paraboloide.position.y = 0.5;
-        paraboloide.castShadow = true;
-        figureGroup.add(paraboloide);
-        
-        // 4. Esfera en la punta
-        const esfera = new THREE.Mesh(new THREE.SphereGeometry(1.36, 48, 48), brightGoldMaterial);
+        const para = new THREE.Mesh(new THREE.LatheGeometry(pointsP, 48), goldMat);
+        para.position.y = 0.5;
+        figureGroup.add(para);
+
+        // 4. Esfera
+        const esfera = new THREE.Mesh(new THREE.SphereGeometry(1.36, 48, 48), brightGold);
         esfera.position.y = 5.7;
-        esfera.castShadow = true;
         figureGroup.add(esfera);
-        
-        // Anillos decorativos (opcional)
+
+        // Anillos decorativos
         const anilloMat = new THREE.MeshStandardMaterial({ color: 0xffaa66, metalness: 0.9 });
-        const anillo1 = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.08, 32, 100), anilloMat);
+        const anillo1 = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.08, 32, 80), anilloMat);
         anillo1.position.y = -1.8;
-        anillo1.rotation.x = Math.PI / 2;
+        anillo1.rotation.x = Math.PI/2;
         figureGroup.add(anillo1);
-        
-        const anillo2 = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.08, 32, 100), anilloMat);
+        const anillo2 = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.08, 32, 80), anilloMat);
         anillo2.position.y = 0.8;
-        anillo2.rotation.x = Math.PI / 2;
+        anillo2.rotation.x = Math.PI/2;
         figureGroup.add(anillo2);
-        
-        // Ajustamos la escala general de la figura
+
         figureGroup.scale.set(0.7, 0.7, 0.7);
-        
-        // --- Campo Vectorial (Flechas + Partículas Dinámicas) ---
-        function vectorField(x, y, z) {
-            let vx = -z * 0.5;
-            let vy = Math.sin(x * 1.2) * Math.cos(z * 1.2) * 0.4;
-            let vz = x * 0.5;
-            let len = Math.hypot(vx, vy, vz);
-            if (len < 0.05) return new THREE.Vector3(0, 0.2, 0);
-            const scale = 0.55;
-            return new THREE.Vector3(vx / len * scale, vy / len * scale, vz / len * scale);
-        }
-        
-        // Función para generar radio aproximado de la figura en cada altura (para evitar flechas dentro)
-        function getFigureRadiusAt(y) {
-            const absY = Math.abs(y);
-            if (absY < 1.2) return 1.4;
-            if (absY < 2.0) return 1.8;
-            if (absY < 2.8) return 1.6;
-            if (absY < 3.8) return 1.2;
-            if (absY < 4.5) return 0.8;
-            return 0.5;
-        }
-        
-        // Crear flechas alrededor
-        const arrowGroup = new THREE.Group();
-        const step = 0.9;
-        for (let x = -2.8; x <= 2.8; x += step) {
-            for (let z = -2.8; z <= 2.8; z += step) {
-                for (let y = -2.5; y <= 4.5; y += step) {
-                    const radFig = getFigureRadiusAt(y);
-                    const distHor = Math.hypot(x, z);
-                    if (distHor > radFig + 0.25 && distHor < 3.2) {
-                        const dir = vectorField(x, y, z);
-                        const hue = 0.55 + (dir.x * 0.2);
-                        const color = new THREE.Color().setHSL(hue, 1.0, 0.65);
-                        const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(x, y, z), dir.length(), color, 0.28, 0.12);
-                        arrowGroup.add(arrow);
-                    }
-                }
-            }
-        }
-        
-        // Partículas dinámicas que siguen el campo
-        const flowCount = 1800;
-        const flowGeo = new THREE.BufferGeometry();
-        const flowPositions = new Float32Array(flowCount * 3);
-        for (let i = 0; i < flowCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 1.8 + Math.random() * 1.6;
-            const y = -1.5 + Math.random() * 4;
-            flowPositions[i*3] = Math.cos(angle) * radius;
-            flowPositions[i*3+1] = y;
-            flowPositions[i*3+2] = Math.sin(angle) * radius;
-        }
-        flowGeo.setAttribute('position', new THREE.BufferAttribute(flowPositions, 3));
-        const flowMat = new THREE.PointsMaterial({ color: 0x88ddff, size: 0.055, transparent: true, blending: THREE.AdditiveBlending });
-        const flowParticles = new THREE.Points(flowGeo, flowMat);
-        
-        function updateFlow(deltaTime) {
-            const positions = flowGeo.attributes.position.array;
-            const speed = deltaTime * 2.4;
-            for (let i = 0; i < flowCount; i++) {
-                let px = positions[i*3];
-                let py = positions[i*3+1];
-                let pz = positions[i*3+2];
-                const dir = vectorField(px, py, pz);
-                px += dir.x * speed;
-                py += dir.y * speed;
-                pz += dir.z * speed;
-                const radFig = getFigureRadiusAt(py);
-                const distHor = Math.hypot(px, pz);
-                if (distHor < radFig + 0.15 || Math.abs(py) > 5.0 || distHor > 3.8) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = 1.8 + Math.random() * 1.6;
-                    px = Math.cos(angle) * radius;
-                    pz = Math.sin(angle) * radius;
-                    py = -1.5 + Math.random() * 4;
-                }
-                positions[i*3] = px;
-                positions[i*3+1] = py;
-                positions[i*3+2] = pz;
-            }
-            flowGeo.attributes.position.needsUpdate = true;
-        }
-        
-        // Partículas internas (brillo interior)
-        const internalCount = 1500;
-        const internalGeo = new THREE.BufferGeometry();
-        const internalPositions = new Float32Array(internalCount * 3);
-        for (let i = 0; i < internalCount; i++) {
-            const y = -2.5 + Math.random() * 7;
-            const rMax = getFigureRadiusAt(y);
-            const r = Math.random() * rMax;
-            const angle = Math.random() * Math.PI * 2;
-            const x = Math.cos(angle) * r;
-            const z = Math.sin(angle) * r;
-            internalPositions[i*3] = x;
-            internalPositions[i*3+1] = y;
-            internalPositions[i*3+2] = z;
-        }
-        internalGeo.setAttribute('position', new THREE.BufferAttribute(internalPositions, 3));
-        const internalMat = new THREE.PointsMaterial({ color: 0xffcc88, size: 0.04, transparent: true, blending: THREE.AdditiveBlending });
-        const internalParticles = new THREE.Points(internalGeo, internalMat);
-        
-        // --- Lógica de Realidad Aumentada con Hit Test ---
-        let currentModel = null;
-        let reticle = null;
-        let hitTestSource = null;
-        let hitTestSourceRequested = false;
-        
-        function createARObject() {
-            const group = new THREE.Group();
-            const figClone = figureGroup.clone(true);
-            const arrowsClone = arrowGroup.clone(true);
-            const particlesClone = flowParticles.clone(true);
-            const internalClone = internalParticles.clone(true);
-            group.add(figClone, arrowsClone, particlesClone, internalClone);
+
+        // --- Objeto que se colocará en AR (clon para poder reubicar) ---
+        let currentObject = null;
+
+        function createPlacedObject() {
+            const group = figureGroup.clone(true);
             group.scale.set(0.8, 0.8, 0.8);
-            group.position.y = -0.2;
+            group.position.y = -0.1; // base toca suelo
             return group;
         }
-        
+
+        // --- Sistema de hit-test y colocación ---
+        let hitTestSource = null;
+        let reticle = null;
+
         function createReticle() {
             const geometry = new THREE.RingGeometry(0.15, 0.25, 32);
-            const material = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+            const material = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, side: THREE.DoubleSide, transparent: true });
             const ring = new THREE.Mesh(geometry, material);
-            ring.rotation.x = -Math.PI / 2;
+            ring.rotation.x = -Math.PI/2;
             return ring;
         }
-        
-        function placeObject(position, normal) {
-            if (currentModel) {
-                scene.remove(currentModel);
-            }
-            currentModel = createARObject();
-            currentModel.position.copy(position);
-            scene.add(currentModel);
+
+        function placeObject(position) {
+            if (currentObject) scene.remove(currentObject);
+            currentObject = createPlacedObject();
+            currentObject.position.copy(position);
+            scene.add(currentObject);
+            document.getElementById('ar-status').innerHTML = '✅ Objeto colocado';
         }
-        
-        function setupARSession() {
-            renderer.xr.addEventListener('sessionstart', () => {
-                controlsPreview.enabled = false;
-                const session = renderer.xr.getSession();
-                if (session) {
-                    session.addEventListener('select', onSelect);
-                    session.requestReferenceSpace('viewer').then((refSpace) => {
-                        session.requestHitTestSource({ space: refSpace }).then((source) => {
-                            hitTestSource = source;
-                        });
-                    });
-                }
-            });
-            
-            renderer.xr.addEventListener('sessionend', () => {
-                controlsPreview.enabled = true;
-                if (hitTestSource) {
-                    hitTestSource.cancel();
-                    hitTestSource = null;
-                }
-                hitTestSourceRequested = false;
-                if (reticle) scene.remove(reticle);
-                if (currentModel) scene.remove(currentModel);
-                currentModel = null;
-            });
-        }
-        
+
         function onSelect() {
             if (reticle && reticle.visible) {
-                placeObject(reticle.position, null);
+                placeObject(reticle.position);
+            } else {
+                document.getElementById('ar-status').innerHTML = '⚠️ No hay superficie detectada';
             }
         }
-        
-        const arButton = ARButton.createButton(renderer, {
-            requiredFeatures: ['hit-test'],
-            optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: document.body }
+
+        // --- Configurar sesión AR ---
+        async function initAR() {
+            const session = renderer.xr.getSession();
+            if (!session) return;
+            session.addEventListener('select', onSelect);
+            // Solicitar hit-test source
+            const viewerRefSpace = await session.requestReferenceSpace('viewer');
+            hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
+            document.getElementById('ar-status').innerHTML = '🔍 Mueve la cámara, toca para colocar';
+        }
+
+        renderer.xr.addEventListener('sessionstart', () => {
+            initAR();
+            if (reticle) reticle.visible = true;
         });
+        renderer.xr.addEventListener('sessionend', () => {
+            if (hitTestSource) hitTestSource.cancel();
+            hitTestSource = null;
+            if (reticle) reticle.visible = false;
+            document.getElementById('ar-status').innerHTML = '🔴 AR finalizado';
+        });
+
+        // --- Botón de AR ---
+        const arButton = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
         document.body.appendChild(arButton);
-        document.querySelector('#ar-button').addEventListener('click', () => {
-            const nativeBtn = document.querySelector('button[type="button"]');
-            if (nativeBtn && nativeBtn.innerText.includes('ACTIVAR')) {
-                nativeBtn.click();
+        // Personalizamos el botón que ya teníamos para que sea el mismo
+        const existingBtn = document.querySelector('button[type="button"]');
+        if (existingBtn) existingBtn.style.display = 'none';
+        document.getElementById('btn-reubicar').addEventListener('click', () => {
+            if (renderer.xr.isPresenting) {
+                // Si ya estamos en AR, volvemos a permitir colocar borrando el objeto actual
+                if (currentObject) scene.remove(currentObject);
+                currentObject = null;
+                document.getElementById('ar-status').innerHTML = '🔄 Toca la pantalla para reubicar';
             } else {
                 arButton.click();
             }
         });
-        
+
+        // Reticle
         reticle = createReticle();
         reticle.visible = false;
         scene.add(reticle);
-        
-        let lastTime = performance.now();
+
+        // --- Animación (actualiza la mira) ---
         function animate() {
-            const now = performance.now();
-            let delta = Math.min(0.033, (now - lastTime) / 1000);
-            lastTime = now;
-            
             if (hitTestSource && renderer.xr.isPresenting) {
                 const frame = renderer.xr.getFrame();
                 if (frame) {
                     const viewerRefSpace = renderer.xr.getReferenceSpace();
-                    if (viewerRefSpace) {
-                        const hitTestResults = frame.getHitTestResults(hitTestSource);
-                        if (hitTestResults.length > 0) {
-                            const hit = hitTestResults[0];
-                            const pose = hit.getPose(viewerRefSpace);
-                            if (pose) {
-                                reticle.visible = true;
-                                reticle.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-                                reticle.quaternion.copy(pose.transform.orientation);
-                            }
-                        } else {
-                            reticle.visible = false;
+                    const results = frame.getHitTestResults(hitTestSource);
+                    if (results.length > 0) {
+                        const pose = results[0].getPose(viewerRefSpace);
+                        if (pose) {
+                            reticle.visible = true;
+                            reticle.position.copy(pose.transform.position);
+                            reticle.quaternion.copy(pose.transform.orientation);
                         }
+                    } else {
+                        reticle.visible = false;
                     }
                 }
-            } else {
-                if (reticle) reticle.visible = false;
             }
-            
-            if (currentModel) {
-                updateFlow(delta);
-                const internalPart = currentModel.children.find(c => c.isPoints && c.material.color.getHex() === internalMat.color.getHex());
-                if (internalPart) {
-                    internalPart.rotation.y += 0.005;
-                    internalPart.rotation.x += 0.003;
-                }
-                const time = Date.now() * 0.003;
-                rimLight.intensity = 0.8 + Math.sin(time) * 0.2;
-                bottomLight.intensity = 0.4 + Math.cos(time * 1.2) * 0.15;
-            } else {
-                updateFlow(delta);
-                internalParticles.rotation.y += 0.003;
-                internalParticles.rotation.x += 0.002;
-            }
-            
             renderer.render(scene, camera);
             requestAnimationFrame(animate);
         }
-        
-        setupARSession();
         animate();
-        
+
+        // --- Vista previa sin AR (muestra la figura flotando) ---
+        const previewGroup = figureGroup.clone(true);
+        previewGroup.scale.set(0.6, 0.6, 0.6);
+        previewGroup.position.y = -0.5;
+        scene.add(previewGroup);
+        // Al entrar en AR, ocultamos la previsualización
+        renderer.xr.addEventListener('sessionstart', () => {
+            scene.remove(previewGroup);
+        });
+        renderer.xr.addEventListener('sessionend', () => {
+            if (!scene.children.includes(previewGroup)) scene.add(previewGroup);
+        });
+
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-        
-        // Vista previa sin AR
-        function addPreviewScene() {
-            const previewGroup = new THREE.Group();
-            const figPrev = figureGroup.clone(true);
-            const arrowsPrev = arrowGroup.clone(true);
-            const particlesPrev = flowParticles.clone(true);
-            const internalPrev = internalParticles.clone(true);
-            previewGroup.add(figPrev, arrowsPrev, particlesPrev, internalPrev);
-            previewGroup.scale.set(0.7, 0.7, 0.7);
-            previewGroup.position.y = -0.2;
-            scene.add(previewGroup);
-            return previewGroup;
-        }
-        
-        let previewModel = addPreviewScene();
-        renderer.xr.addEventListener('sessionstart', () => {
-            if (previewModel) {
-                scene.remove(previewModel);
-                previewModel = null;
-            }
-        });
-        renderer.xr.addEventListener('sessionend', () => {
-            if (!previewModel) {
-                previewModel = addPreviewScene();
-            }
-        });
-        
-        console.log('✅ Figura de volúmenes (oro) con campo vectorial lista para AR.');
+
+        console.log('Listo. Si no funciona la RA, asegúrate de usar HTTPS y un dispositivo compatible.');
     </script>
 </body>
-    </html>
+</html>
