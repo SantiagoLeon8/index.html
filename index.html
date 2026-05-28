@@ -1,11 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Figura de Volúmenes en Realidad Aumentada (Dorada)</title>
+    <title>Figura de Volúmenes en RA - Dorada</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #info {
             position: absolute;
             bottom: 20px;
@@ -15,8 +16,8 @@
             padding: 8px 15px;
             border-radius: 8px;
             font-size: 14px;
-            z-index: 10;
             pointer-events: none;
+            z-index: 10;
         }
         #btn-reubicar {
             position: absolute;
@@ -32,12 +33,12 @@
             z-index: 20;
             font-size: 16px;
         }
-        #ar-status {
+        #status {
             position: absolute;
             top: 20px;
             right: 20px;
             background: rgba(0,0,0,0.5);
-            color: lime;
+            color: #0f0;
             padding: 5px 10px;
             border-radius: 8px;
             font-size: 12px;
@@ -49,7 +50,7 @@
 <body>
     <div id="info">✨ FIGURA DORADA (Cono+Hiperboloide+Paraboloide+Esfera) | Toca la pantalla para colocar</div>
     <button id="btn-reubicar">📍 Volver a colocar</button>
-    <div id="ar-status">🔄 Iniciando...</div>
+    <div id="status">🔄 Iniciando...</div>
 
     <script type="importmap">
         {
@@ -75,7 +76,7 @@
         renderer.xr.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- Iluminación realista ---
+        // --- Iluminación realista (efecto oro) ---
         const ambient = new THREE.AmbientLight(0x404060, 0.6);
         scene.add(ambient);
         const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
@@ -91,7 +92,7 @@
         rimLight.position.set(1.5, 2, -2);
         scene.add(rimLight);
 
-        // --- Construcción de la figura (exactamente la de volúmenes) ---
+        // --- Construcción de la figura (volúmenes exactos) ---
         const figureGroup = new THREE.Group();
         const goldMat = new THREE.MeshStandardMaterial({ color: 0xffaa33, metalness: 0.95, roughness: 0.25, emissive: 0x442200, emissiveIntensity: 0.1 });
         const brightGold = new THREE.MeshStandardMaterial({ color: 0xffcc66, metalness: 0.99, roughness: 0.15 });
@@ -141,17 +142,25 @@
 
         figureGroup.scale.set(0.7, 0.7, 0.7);
 
-        // --- Objeto que se colocará en AR (clon para poder reubicar) ---
+        // --- Objeto para colocar en AR (clon) ---
         let currentObject = null;
 
         function createPlacedObject() {
             const group = figureGroup.clone(true);
             group.scale.set(0.8, 0.8, 0.8);
-            group.position.y = -0.1; // base toca suelo
+            group.position.y = -0.1; // base toca el suelo
             return group;
         }
 
-        // --- Sistema de hit-test y colocación ---
+        function placeObject(position) {
+            if (currentObject) scene.remove(currentObject);
+            currentObject = createPlacedObject();
+            currentObject.position.copy(position);
+            scene.add(currentObject);
+            document.getElementById('status').innerHTML = '✅ Figura colocada';
+        }
+
+        // --- Sistema de hit-test ---
         let hitTestSource = null;
         let reticle = null;
 
@@ -163,56 +172,43 @@
             return ring;
         }
 
-        function placeObject(position) {
-            if (currentObject) scene.remove(currentObject);
-            currentObject = createPlacedObject();
-            currentObject.position.copy(position);
-            scene.add(currentObject);
-            document.getElementById('ar-status').innerHTML = '✅ Objeto colocado';
-        }
-
-        function onSelect() {
-            if (reticle && reticle.visible) {
-                placeObject(reticle.position);
-            } else {
-                document.getElementById('ar-status').innerHTML = '⚠️ No hay superficie detectada';
-            }
-        }
-
-        // --- Configurar sesión AR ---
-        async function initAR() {
+        async function initARSession() {
             const session = renderer.xr.getSession();
             if (!session) return;
-            session.addEventListener('select', onSelect);
-            // Solicitar hit-test source
-            const viewerRefSpace = await session.requestReferenceSpace('viewer');
-            hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
-            document.getElementById('ar-status').innerHTML = '🔍 Mueve la cámara, toca para colocar';
+            session.addEventListener('select', () => {
+                if (reticle && reticle.visible) {
+                    placeObject(reticle.position);
+                } else {
+                    document.getElementById('status').innerHTML = '⚠️ Apunta a una superficie';
+                }
+            });
+            const viewerSpace = await session.requestReferenceSpace('viewer');
+            hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+            document.getElementById('status').innerHTML = '🔍 Toca la pantalla para colocar';
         }
 
         renderer.xr.addEventListener('sessionstart', () => {
-            initAR();
+            initARSession();
             if (reticle) reticle.visible = true;
         });
         renderer.xr.addEventListener('sessionend', () => {
             if (hitTestSource) hitTestSource.cancel();
             hitTestSource = null;
             if (reticle) reticle.visible = false;
-            document.getElementById('ar-status').innerHTML = '🔴 AR finalizado';
+            document.getElementById('status').innerHTML = '🔴 AR finalizado';
         });
 
-        // --- Botón de AR ---
+        // --- Botón de AR (Three.js) ---
         const arButton = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
         document.body.appendChild(arButton);
-        // Personalizamos el botón que ya teníamos para que sea el mismo
-        const existingBtn = document.querySelector('button[type="button"]');
-        if (existingBtn) existingBtn.style.display = 'none';
+        // Ocultamos el botón original y usamos el nuestro para reubicar
+        const originalBtn = document.querySelector('button[type="button"]');
+        if (originalBtn) originalBtn.style.display = 'none';
         document.getElementById('btn-reubicar').addEventListener('click', () => {
             if (renderer.xr.isPresenting) {
-                // Si ya estamos en AR, volvemos a permitir colocar borrando el objeto actual
                 if (currentObject) scene.remove(currentObject);
                 currentObject = null;
-                document.getElementById('ar-status').innerHTML = '🔄 Toca la pantalla para reubicar';
+                document.getElementById('status').innerHTML = '🔄 Toca para colocar de nuevo';
             } else {
                 arButton.click();
             }
@@ -223,22 +219,22 @@
         reticle.visible = false;
         scene.add(reticle);
 
-        // --- Animación (actualiza la mira) ---
+        // --- Animación: actualiza la mira ---
         function animate() {
             if (hitTestSource && renderer.xr.isPresenting) {
                 const frame = renderer.xr.getFrame();
                 if (frame) {
-                    const viewerRefSpace = renderer.xr.getReferenceSpace();
+                    const viewerSpace = renderer.xr.getReferenceSpace();
                     const results = frame.getHitTestResults(hitTestSource);
                     if (results.length > 0) {
-                        const pose = results[0].getPose(viewerRefSpace);
-                        if (pose) {
+                        const pose = results[0].getPose(viewerSpace);
+                        if (pose && reticle) {
                             reticle.visible = true;
                             reticle.position.copy(pose.transform.position);
                             reticle.quaternion.copy(pose.transform.orientation);
                         }
                     } else {
-                        reticle.visible = false;
+                        if (reticle) reticle.visible = false;
                     }
                 }
             }
@@ -247,14 +243,13 @@
         }
         animate();
 
-        // --- Vista previa sin AR (muestra la figura flotando) ---
+        // --- Vista previa sin AR (figura flotando) ---
         const previewGroup = figureGroup.clone(true);
         previewGroup.scale.set(0.6, 0.6, 0.6);
         previewGroup.position.y = -0.5;
         scene.add(previewGroup);
-        // Al entrar en AR, ocultamos la previsualización
         renderer.xr.addEventListener('sessionstart', () => {
-            scene.remove(previewGroup);
+            if (previewGroup) scene.remove(previewGroup);
         });
         renderer.xr.addEventListener('sessionend', () => {
             if (!scene.children.includes(previewGroup)) scene.add(previewGroup);
@@ -266,7 +261,8 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        console.log('Listo. Si no funciona la RA, asegúrate de usar HTTPS y un dispositivo compatible.');
+        document.getElementById('status').innerHTML = '✅ Listo. Pulsa el botón naranja para AR.';
+        console.log('Cargado. Asegúrate de usar HTTPS y un dispositivo compatible.');
     </script>
 </body>
 </html>
