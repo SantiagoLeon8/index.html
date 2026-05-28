@@ -2,41 +2,63 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Exportar Alfil Fotorrealista a GLB- Santisgo leon Hernández</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Alfil Dorado en Realidad Aumentada con Campo Vectorial</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: Arial; }
-        #export-btn {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            padding: 12px 24px;
-            background: #ff8800;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            z-index: 100;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         #info {
             position: absolute;
-            top: 20px;
+            bottom: 20px;
             left: 20px;
             background: rgba(0,0,0,0.7);
-            color: white;
+            color: #ffddaa;
             padding: 8px 15px;
             border-radius: 8px;
-            pointer-events: none;
             font-size: 14px;
+            pointer-events: none;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            font-family: monospace;
+        }
+        #ar-button {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: #ffaa33;
+            color: #2c2c2c;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 20;
+            font-family: inherit;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background 0.2s;
+        }
+        #ar-button:hover {
+            background: #ffcc55;
+            transform: scale(1.02);
+        }
+        #ar-button:active {
+            transform: scale(0.98);
+        }
+        @media (max-width: 600px) {
+            #info { font-size: 10px; bottom: 10px; left: 10px; }
+            #ar-button { padding: 8px 16px; font-size: 14px; bottom: 20px; right: 20px; }
         }
     </style>
 </head>
 <body>
     <div id="info">
-        🧩 Alfil optimizado para AR (PBR, < 50k polígonos) | Haz clic en "Exportar GLB"
+        🧙 ALFIL DORADO PBR | Toca la pantalla para colocarlo | Campo vectorial dinámico
     </div>
-    <button id="export-btn">⬇️ Exportar como .glb</button>
+    <button id="ar-button">🔮 ACTIVAR REALIDAD AUMENTADA</button>
 
     <script type="importmap">
         {
@@ -50,169 +72,398 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-        // --- Escena para visualizar antes de exportar ---
+        // --- Configuración inicial de la escena y la cámara ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x111122);
-        
+        scene.background = null; // Fondo transparente para AR
+        scene.environment = null; // Evitamos contaminar la iluminación AR
+
+        // Cámara para la experiencia de RA
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(3, 2, 4);
-        camera.lookAt(0, 1, 0);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.xr.enabled = true; // Habilitamos WebXR para RA
         document.body.appendChild(renderer.domElement);
-        
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        
-        // --- Iluminación para la vista previa ---
-        const ambientLight = new THREE.AmbientLight(0x404060);
+
+        // --- Controles Manuales para la Vista Previa (No AR) ---
+        const controlsPreview = new OrbitControls(camera, renderer.domElement);
+        controlsPreview.enableDamping = true;
+        controlsPreview.enableZoom = true;
+        controlsPreview.enablePan = true;
+
+        // --- Iluminación de Alta Calidad para efecto "Oro" ---
+        // Luz ambiental suave para rellenar sombras
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
         scene.add(ambientLight);
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-        mainLight.position.set(2, 3, 2);
+        
+        // Luz principal direccional que genera los reflejos metálicos
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+        mainLight.position.set(2, 3, 1.5);
+        mainLight.castShadow = true;
         scene.add(mainLight);
-        const fillLight = new THREE.PointLight(0xcc9966, 0.5);
-        fillLight.position.set(1, 1, 2);
+        
+        // Luz de relleno cálida desde atrás
+        const backLight = new THREE.PointLight(0xcc8844, 0.6);
+        backLight.position.set(-1, 2, -2);
+        scene.add(backLight);
+        
+        // Luz fría lateral para dar contraste
+        const fillLight = new THREE.PointLight(0x6688aa, 0.5);
+        fillLight.position.set(1.5, 1, 1.8);
         scene.add(fillLight);
         
-        // --- Creación del alfil con materiales PBR (fotorrealista) y baja poligonización ---
+        // Luz de borde (rim light) para resaltar los bordes dorados
+        const rimLight = new THREE.PointLight(0xffaa66, 0.8);
+        rimLight.position.set(1, 2.5, -2);
+        scene.add(rimLight);
+        
+        // Luz desde abajo para simular rebote en superficies
+        const bottomLight = new THREE.PointLight(0xaa8866, 0.4);
+        bottomLight.position.set(0, -1.5, 0);
+        scene.add(bottomLight);
+        
+        // --- Creación del Alfil con Material Dorado Fotorrealista (PBR) ---
         const bishopGroup = new THREE.Group();
         
-        // Para texturas PBR de ejemplo (puedes reemplazar las URLs por tus propias texturas de alta resolución)
-        // Usaremos texturas de madera envejecida y metal para un aspecto realista.
-        // Si no cargan, el material caerá en color sólido.
-        const textureLoader = new THREE.TextureLoader();
-        // Textura de madera (base color)
-        const woodColor = textureLoader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
-        // Pero esa no es madera, mejor usamos una textura de madera real desde internet (ejemplo)
-        // Para que funcione sin red, usaremos materiales con parámetros PBR sólidos pero realistas.
-        // En un caso real, descarga texturas CC0 de sitios como polyhaven.com
+        // Material principal dorado: alto metalness, roughness baja para reflejos intensos
+        const goldMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffaa33,
+            emissive: 0x442200,
+            emissiveIntensity: 0.12,
+            metalness: 0.98,
+            roughness: 0.28,
+            flatShading: false
+        });
         
-        // Material de la pieza principal (cobre/madera pulida)
-        const bodyMat = new THREE.MeshStandardMaterial({
+        // Material más oscuro para dar contraste en detalles (dorado mate)
+        const darkGoldMaterial = new THREE.MeshStandardMaterial({
             color: 0xcc8844,
             metalness: 0.85,
-            roughness: 0.25,
-            emissive: 0x331100,
-            emissiveIntensity: 0.1
+            roughness: 0.45,
+            emissive: 0x221100
         });
         
-        const goldMat = new THREE.MeshStandardMaterial({
-            color: 0xddbb77,
-            metalness: 0.95,
-            roughness: 0.2,
-            emissive: 0x442200
+        // Material para incrustaciones brillantes
+        const brightGoldMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffcc66,
+            metalness: 0.99,
+            roughness: 0.15,
+            emissive: 0x552200,
+            emissiveIntensity: 0.05
         });
         
-        const darkMat = new THREE.MeshStandardMaterial({
-            color: 0x444444,
-            metalness: 0.7,
-            roughness: 0.4
-        });
-        
-        // Base (reducimos segmentos a 32)
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.25, 32), bodyMat);
+        // 1. Base (achatada, ancha)
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.95, 0.28, 48), goldMaterial);
         base.position.y = 0;
         base.castShadow = true;
         bishopGroup.add(base);
         
-        // Cuerpo
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.8, 0.9, 32), bodyMat);
-        body.position.y = 0.25 + 0.45;
+        // 2. Cuerpo principal
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.82, 0.92, 48), goldMaterial);
+        body.position.y = 0.28 + 0.46;
+        body.castShadow = true;
         bishopGroup.add(body);
         
-        // Anillo dorado
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.08, 24, 48), goldMat);
-        ring.position.y = 0.75;
-        ring.rotation.x = Math.PI / 2;
-        bishopGroup.add(ring);
+        // 3. Anillo decorativo inferior (torus)
+        const ringLower = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.09, 32, 80), brightGoldMaterial);
+        ringLower.position.y = 0.48;
+        ringLower.rotation.x = Math.PI / 2;
+        bishopGroup.add(ringLower);
         
-        // Cuello
-        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.35, 24), bodyMat);
-        neck.position.y = 1.05;
+        // 4. Anillo principal (dorado brillante)
+        const ringMain = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.1, 32, 80), brightGoldMaterial);
+        ringMain.position.y = 0.85;
+        ringMain.rotation.x = Math.PI / 2;
+        bishopGroup.add(ringMain);
+        
+        // 5. Cuello
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.58, 0.38, 48), goldMaterial);
+        neck.position.y = 1.15;
+        neck.castShadow = true;
         bishopGroup.add(neck);
         
-        // Cabeza (esfera achatada)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), bodyMat);
-        head.position.y = 1.35;
-        head.scale.set(0.9, 0.65, 0.9);
+        // 6. Cabeza (forma esférica achatada)
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.54, 64, 64), goldMaterial);
+        head.position.y = 1.52;
+        head.scale.set(0.92, 0.68, 0.92);
+        head.castShadow = true;
         bishopGroup.add(head);
         
-        // Collar dorado
-        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.07, 24, 48), goldMat);
-        collar.position.y = 1.2;
+        // 7. Collar superior (torus)
+        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.08, 32, 80), brightGoldMaterial);
+        collar.position.y = 1.38;
         collar.rotation.x = Math.PI / 2;
         bishopGroup.add(collar);
         
-        // Mitra
-        const mitreBase = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.62, 0.45, 32), bodyMat);
-        mitreBase.position.y = 1.65;
+        // 8. Mitra (base del cono)
+        const mitreBase = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.66, 0.48, 48), goldMaterial);
+        mitreBase.position.y = 1.86;
         bishopGroup.add(mitreBase);
         
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.7, 32), bodyMat);
-        spike.position.y = 1.95;
+        // 9. Punta del alfil (cono)
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.78, 48), goldMaterial);
+        spike.position.y = 2.18;
+        spike.castShadow = true;
         bishopGroup.add(spike);
         
-        // Bola superior dorada
-        const finial = new THREE.Mesh(new THREE.SphereGeometry(0.14, 24, 24), goldMat);
-        finial.position.y = 2.28;
+        // 10. Bola superior (remate)
+        const finial = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 32), brightGoldMaterial);
+        finial.position.y = 2.58;
+        finial.castShadow = true;
         bishopGroup.add(finial);
         
-        // Detalles incrustados (pequeñas esferas doradas)
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const stud = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), goldMat);
-            stud.position.set(Math.cos(angle) * 0.72, 0.55, Math.sin(angle) * 0.72);
+        // 11. Detalles incrustados (esferas doradas alrededor del cuerpo)
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const stud = new THREE.Mesh(new THREE.SphereGeometry(0.085, 24, 24), brightGoldMaterial);
+            stud.position.set(Math.cos(angle) * 0.78, 0.68, Math.sin(angle) * 0.78);
+            stud.castShadow = true;
             bishopGroup.add(stud);
         }
         
-        scene.add(bishopGroup);
-        
-        // --- Función de exportación ---
-        function exportToGLB() {
-            const exporter = new GLTFExporter();
-            // Exportamos el grupo del alfil sin el fondo ni luces
-            exporter.parse(
-                bishopGroup,
-                (result) => {
-                    const blob = new Blob([result], { type: 'application/octet-stream' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'alfil_fotorrealista.glb';
-                    link.click();
-                    URL.revokeObjectURL(link.href);
-                    console.log('Exportado correctamente');
-                },
-                (error) => {
-                    console.error('Error en exportación:', error);
-                },
-                { binary: true }  // Formato .glb
-            );
+        // 12. Pequeñas joyas en la base
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const gem = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), darkGoldMaterial);
+            gem.position.set(Math.cos(angle) * 0.94, 0.12, Math.sin(angle) * 0.94);
+            gem.castShadow = true;
+            bishopGroup.add(gem);
         }
         
-        document.getElementById('export-btn').addEventListener('click', exportToGLB);
+        // Ajustamos la escala para que sea proporcionada en AR (tamaño ~ 20 cm de alto en el mundo real)
+        bishopGroup.scale.set(0.85, 0.85, 0.85);
         
-        // Animación de vista previa
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
+        // --- Campo Vectorial (Flechas + Partículas Dinámicas) ---
+        // Definimos un campo vectorial con rotación armónica alrededor de Y
+        function vectorField(x, y, z) {
+            // Flujo vorticial suave y con variación en Y
+            let vx = -z * 0.5;
+            let vy = Math.sin(x * 1.2) * Math.cos(z * 1.2) * 0.4;
+            let vz = x * 0.5;
+            let len = Math.hypot(vx, vy, vz);
+            if (len < 0.05) return new THREE.Vector3(0, 0.2, 0);
+            const scale = 0.55;
+            return new THREE.Vector3(vx / len * scale, vy / len * scale, vz / len * scale);
         }
-        animate();
         
-        // Aviso de polígonos (estimación)
-        let totalTris = 0;
-        bishopGroup.traverse(child => {
-            if (child.isMesh) {
-                const geom = child.geometry;
-                if (geom.index) totalTris += geom.index.count / 3;
-                else totalTris += geom.attributes.position.count / 3;
+        // Función para generar radio aproximado del alfil en cada altura (para evitar flechas dentro)
+        function getBishopRadiusAt(y) {
+            // Alturas locales del alfil (escala original 0.85 ya aplicada)
+            const absY = Math.abs(y);
+            if (absY < 0.25) return 0.85;
+            if (absY < 0.75) return 0.75;
+            if (absY < 1.15) return 0.68;
+            if (absY < 1.55) return 0.55;
+            if (absY < 1.85) return 0.52;
+            if (absY < 2.15) return 0.45;
+            return 0.32;
+        }
+        
+        // Crear flechas alrededor (grupo separado, se añadirá después al scene)
+        const arrowGroup = new THREE.Group();
+        const step = 0.9;
+        for (let x = -2.8; x <= 2.8; x += step) {
+            for (let z = -2.8; z <= 2.8; z += step) {
+                for (let y = -1.6; y <= 2.4; y += step) {
+                    const radFig = getBishopRadiusAt(y);
+                    const distHor = Math.hypot(x, z);
+                    if (distHor > radFig + 0.25 && distHor < 3.2) {
+                        const dir = vectorField(x, y, z);
+                        const hue = 0.55 + (dir.x * 0.2);
+                        const color = new THREE.Color().setHSL(hue, 1.0, 0.65);
+                        const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(x, y, z), dir.length(), color, 0.28, 0.12);
+                        arrowGroup.add(arrow);
+                    }
+                }
+            }
+        }
+        
+        // Partículas dinámicas que siguen el campo (flujo alrededor)
+        const flowCount = 1800;
+        const flowGeo = new THREE.BufferGeometry();
+        const flowPositions = new Float32Array(flowCount * 3);
+        for (let i = 0; i < flowCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 1.8 + Math.random() * 1.6;
+            const y = -1.5 + Math.random() * 4;
+            flowPositions[i*3] = Math.cos(angle) * radius;
+            flowPositions[i*3+1] = y;
+            flowPositions[i*3+2] = Math.sin(angle) * radius;
+        }
+        flowGeo.setAttribute('position', new THREE.BufferAttribute(flowPositions, 3));
+        const flowMat = new THREE.PointsMaterial({ color: 0x88ddff, size: 0.055, transparent: true, blending: THREE.AdditiveBlending });
+        const flowParticles = new THREE.Points(flowGeo, flowMat);
+        
+        function updateFlow(deltaTime) {
+            const positions = flowGeo.attributes.position.array;
+            const speed = deltaTime * 2.4;
+            for (let i = 0; i < flowCount; i++) {
+                let px = positions[i*3];
+                let py = positions[i*3+1];
+                let pz = positions[i*3+2];
+                const dir = vectorField(px, py, pz);
+                px += dir.x * speed;
+                py += dir.y * speed;
+                pz += dir.z * speed;
+                const radFig = getBishopRadiusAt(py);
+                const distHor = Math.hypot(px, pz);
+                if (distHor < radFig + 0.15 || Math.abs(py) > 3.5 || distHor > 3.8) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 1.8 + Math.random() * 1.6;
+                    px = Math.cos(angle) * radius;
+                    pz = Math.sin(angle) * radius;
+                    py = -1.5 + Math.random() * 4;
+                }
+                positions[i*3] = px;
+                positions[i*3+1] = py;
+                positions[i*3+2] = pz;
+            }
+            flowGeo.attributes.position.needsUpdate = true;
+        }
+        
+        // Partículas internas (brillo interior)
+        const internalCount = 1500;
+        const internalGeo = new THREE.BufferGeometry();
+        const internalPositions = new Float32Array(internalCount * 3);
+        for (let i = 0; i < internalCount; i++) {
+            const y = -1.8 + Math.random() * 3.6;
+            const rMax = getBishopRadiusAt(y);
+            const r = Math.random() * rMax;
+            const angle = Math.random() * Math.PI * 2;
+            const x = Math.cos(angle) * r;
+            const z = Math.sin(angle) * r;
+            internalPositions[i*3] = x;
+            internalPositions[i*3+1] = y;
+            internalPositions[i*3+2] = z;
+        }
+        internalGeo.setAttribute('position', new THREE.BufferAttribute(internalPositions, 3));
+        const internalMat = new THREE.PointsMaterial({ color: 0xffcc88, size: 0.04, transparent: true, blending: THREE.AdditiveBlending });
+        const internalParticles = new THREE.Points(internalGeo, internalMat);
+        
+        // --- Lógica de Realidad Aumentada con Hit Test ---
+        let currentModel = null; // Grupo que contendrá alfil + campo vectorial
+        let reticle = null;     // Mira para indicar dónde se va a colocar
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        
+        // Crear el objeto completo que se colocará en AR (alfil + campo)
+        function createARObject() {
+            const group = new THREE.Group();
+            // Clonamos el alfil (para evitar problemas de referencias)
+            const alfilClone = bishopGroup.clone(true);
+            group.add(alfilClone);
+            // Añadimos flechas y partículas (clonadas también)
+            const arrowsClone = arrowGroup.clone(true);
+            const particlesClone = flowParticles.clone(true);
+            const internalClone = internalParticles.clone(true);
+            group.add(arrowsClone);
+            group.add(particlesClone);
+            group.add(internalClone);
+            
+            // Ajustar escala y posición local
+            group.scale.set(0.8, 0.8, 0.8);
+            group.position.y = -0.2; // Ajuste para que la base toque la superficie
+            return group;
+        }
+        
+        // Crear la mira (reticle)
+        function createReticle() {
+            const geometry = new THREE.RingGeometry(0.15, 0.25, 32);
+            const material = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x442200, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+            const ring = new THREE.Mesh(geometry, material);
+            ring.rotation.x = -Math.PI / 2;
+            return ring;
+        }
+        
+        // Función para colocar el objeto en el mundo real
+        function placeObject(position, normal) {
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+            currentModel = createARObject();
+            currentModel.position.copy(position);
+            // Opcional: Orientar ligeramente según la normal de la superficie (para mesas horizontales)
+            // Por simplicidad, mantenemos la rotación por defecto
+            scene.add(currentModel);
+        }
+        
+        // Configurar la sesión de WebXR con hit-test
+        function setupARSession() {
+            renderer.xr.addEventListener('sessionstart', () => {
+                // Ocultamos controles de vista previa cuando se entra en AR
+                controlsPreview.enabled = false;
+                const session = renderer.xr.getSession();
+                if (session) {
+                    session.addEventListener('select', onSelect);
+                    // Solicitar hit-test source
+                    session.requestReferenceSpace('viewer').then((refSpace) => {
+                        session.requestHitTestSource({ space: refSpace }).then((source) => {
+                            hitTestSource = source;
+                        });
+                    });
+                }
+            });
+            
+            renderer.xr.addEventListener('sessionend', () => {
+                // Restauramos controles al salir de AR
+                controlsPreview.enabled = true;
+                if (hitTestSource) {
+                    hitTestSource.cancel();
+                    hitTestSource = null;
+                }
+                hitTestSourceRequested = false;
+                if (reticle) scene.remove(reticle);
+                if (currentModel) scene.remove(currentModel);
+                currentModel = null;
+            });
+        }
+        
+        function onSelect() {
+            if (reticle && reticle.visible) {
+                // Colocamos el objeto en la posición actual de la mira
+                placeObject(reticle.position, null);
+            }
+        }
+        
+        // Añadir el botón de AR proporcionado por Three.js
+        const arButton = ARButton.createButton(renderer, {
+            requiredFeatures: ['hit-test'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        });
+        document.body.appendChild(arButton);
+        // Personalizamos el botón por si queremos mantener el nuestro
+        document.querySelector('#ar-button').addEventListener('click', () => {
+            // Disparamos el botón nativo de AR
+            const nativeBtn = document.querySelector('button[type="button"]');
+            if (nativeBtn && nativeBtn.innerText.includes('ACTIVAR')) {
+                nativeBtn.click();
+            } else {
+                arButton.click();
             }
         });
-        console.log(`Polígonos estimados: ${Math.round(totalTris)} (muy por debajo de 50k)`);
-    </script>
-</body>
-</html>
+        
+        // Inicializar la mira (reticle)
+        reticle = createReticle();
+        reticle.visible = false;
+        scene.add(reticle);
+        
+        // Bucle de animación que actualiza hit-test y partículas
+        let lastTime = performance.now();
+        function animate() {
+            const now = performance.now();
+            let delta = Math.min(0.033, (now - lastTime) / 1000);
+            lastTime = now;
+            
+            // Si estamos en AR y tenemos hit-test source, actualizamos la mira
+            if (hitTestSource && renderer.xr.isPresenting) {
+                const frame = renderer.xr.getFrame();
+                if (frame) {
+                    const viewerRefSpace = renderer.xr.getReferenceSpace();
+                    if (viewerRefSpace) {
+                        const hitTestResults = frame.getHitTestResults(hitTestSource);
+                        if (hitTestResults.length > 0) {
+                            con
